@@ -866,80 +866,287 @@
     }
   }
 
-  function drawBackground() {
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, "#192847");
-    gradient.addColorStop(0.58, "#284f6b");
-    gradient.addColorStop(1, "#355127");
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#ffffff18";
-    for (let i = 0; i < 12; i += 1) {
-      const x = ((i * 220) - camera.x * 0.28) % (canvas.width + 280) - 140;
-      const y = 100 + (i % 4) * 88;
-      ctx.beginPath();
-      ctx.arc(x, y, 54, 0, Math.PI * 2);
-      ctx.fill();
+  function seededNoise(seed) {
+    const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+    return value - Math.floor(value);
+  }
+
+  function drawSmokeShape(x, y, sx, sy, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = "#0f2d3b";
+    ctx.beginPath();
+    ctx.ellipse(x, y, sx, sy, 0.1, 0, Math.PI * 2);
+    ctx.ellipse(x - sx * 0.55, y + sy * 0.08, sx * 0.66, sy * 0.52, -0.18, 0, Math.PI * 2);
+    ctx.ellipse(x + sx * 0.52, y - sy * 0.1, sx * 0.7, sy * 0.55, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawBackgroundSmoke() {
+    for (let i = 0; i < 14; i += 1) {
+      const x = ((i * 210) - camera.x * 0.16) % (canvas.width + 400) - 200;
+      const y = 70 + (i % 5) * 115 + (i % 2) * 18;
+      drawSmokeShape(x, y, 96 + (i % 3) * 24, 34 + (i % 4) * 8, 0.22);
     }
-    ctx.fillStyle = "#88b07f44";
-    for (let i = 0; i < 10; i += 1) {
-      const x = ((i * 310) - camera.x * 0.45) % (canvas.width + 380) - 150;
+    for (let i = 0; i < 11; i += 1) {
+      const x = ((i * 260) - camera.x * 0.23) % (canvas.width + 480) - 240;
+      const y = 98 + (i % 4) * 132;
+      drawSmokeShape(x, y, 128 + (i % 3) * 20, 46 + (i % 2) * 14, 0.18);
+    }
+  }
+
+  function drawFarPillars() {
+    ctx.save();
+    ctx.globalAlpha = 0.4;
+    for (let i = 0; i < 8; i += 1) {
+      const worldX = 120 + i * 400;
+      const x = worldX - camera.x * 0.2;
+      const width = 40;
+      const capWidth = width + 20;
+      ctx.fillStyle = "#9aa0a6";
+      ctx.fillRect(x, -30, width, canvas.height + 60);
+      ctx.fillStyle = "#7f8791";
+      ctx.fillRect(x - 10, -22, capWidth, 16);
+      ctx.fillRect(x - 10, canvas.height - 10, capWidth, 18);
+    }
+    ctx.restore();
+  }
+
+  function drawMidPillars() {
+    ctx.save();
+    ctx.globalAlpha = 0.7;
+    for (let i = 0; i < 7; i += 1) {
+      const worldX = 40 + i * 470;
+      const x = worldX - camera.x * 0.36;
+      const width = 60;
+      const capWidth = width + 20;
+      ctx.fillStyle = "#94a1ad";
+      ctx.fillRect(x, -26, width, canvas.height + 52);
+      ctx.fillStyle = "#7a8792";
+      ctx.fillRect(x - 10, -18, capWidth, 20);
+      ctx.fillRect(x - 10, canvas.height - 12, capWidth, 22);
+
+      ctx.fillStyle = "#55595f";
+      for (let s = 0; s < 3; s += 1) {
+        const sx = x + 10 + s * 16;
+        ctx.fillRect(sx, 0, 3, canvas.height);
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawTopLeftLight() {
+    const glow = ctx.createRadialGradient(80, 70, 10, 80, 70, 360);
+    glow.addColorStop(0, "rgba(255,255,255,0.28)");
+    glow.addColorStop(0.35, "rgba(128,216,255,0.22)");
+    glow.addColorStop(1, "rgba(128,216,255,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, 520, 420);
+  }
+
+  function drawBackground() {
+    ctx.fillStyle = "#05080f";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawBackgroundSmoke();
+    drawFarPillars();
+    drawMidPillars();
+    drawTopLeftLight();
+  }
+
+  function isBoundaryPlatform(plat) {
+    return plat.x < 0 || plat.y < 0 || plat.x + plat.w > world.width || plat.y + plat.h > world.height;
+  }
+
+  function isGroundPlatform(plat) {
+    return plat.w >= world.width - 2 && plat.y >= world.height - 100;
+  }
+
+  function drawCrystalTop(plat, baseY, seedOffset) {
+    const step = 20;
+    for (let x = 0; x <= plat.w + step; x += step) {
+      const idx = x / step;
+      const n = seededNoise(seedOffset + idx * 0.73);
+      const h = 15 + n * 20;
+      const color = idx % 2 === 0 ? "#4fc3f7" : "#0d47a1";
+      ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.moveTo(x, canvas.height);
-      ctx.lineTo(x + 120, canvas.height - 170 - (i % 3) * 30);
-      ctx.lineTo(x + 240, canvas.height);
+      ctx.moveTo(plat.x + x, baseY);
+      ctx.lineTo(plat.x + x + step * 0.5, baseY - h);
+      ctx.lineTo(plat.x + x + step, baseY);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = "#80d8ff";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(plat.x + x + step * 0.5, baseY - h);
+      ctx.lineTo(plat.x + x + step, baseY);
+      ctx.stroke();
+    }
+  }
+
+  function drawFloorCrystals(plat) {
+    for (let i = 0; i < 36; i += 1) {
+      const n = seededNoise(plat.x * 0.01 + i * 1.27);
+      const x = plat.x + 24 + i * ((plat.w - 48) / 35);
+      const h = 8 + n * 16;
+      ctx.fillStyle = i % 2 === 0 ? "#4fc3f7" : "#0d47a1";
+      ctx.beginPath();
+      ctx.moveTo(x - 5, plat.y + 8);
+      ctx.lineTo(x, plat.y + 8 - h);
+      ctx.lineTo(x + 5, plat.y + 8);
       ctx.closePath();
       ctx.fill();
     }
   }
 
+  function drawPlatformBody(plat) {
+    const topY = plat.y + 4;
+    const topH = 12;
+    const sideThickness = isGroundPlatform(plat) ? Math.max(plat.h - topH, 36) : 25;
+
+    const bodyGradient = ctx.createLinearGradient(plat.x, topY, plat.x, topY + sideThickness + 20);
+    bodyGradient.addColorStop(0, "#283593");
+    bodyGradient.addColorStop(0.55, "#1a237e");
+    bodyGradient.addColorStop(1, "#0a0e2a");
+
+    ctx.fillStyle = bodyGradient;
+    ctx.fillRect(plat.x, topY, plat.w, sideThickness);
+    ctx.fillStyle = "#0a0e2a";
+    ctx.fillRect(plat.x, topY + sideThickness, plat.w, Math.max(0, plat.h - sideThickness + 10));
+
+    ctx.strokeStyle = "#80d8ff";
+    ctx.lineWidth = 1.4;
+    ctx.strokeRect(plat.x + 0.5, topY + 0.5, plat.w - 1, sideThickness - 1);
+
+    drawCrystalTop(plat, topY, plat.x * 0.07 + plat.y * 0.003);
+  }
+
   function drawPlatforms() {
     platforms.forEach((plat) => {
-      ctx.fillStyle = "#4d4236";
-      ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
-      ctx.fillStyle = "#87c56c";
-      ctx.fillRect(plat.x, plat.y, plat.w, Math.min(10, plat.h));
+      if (isBoundaryPlatform(plat)) {
+        return;
+      }
+      drawPlatformBody(plat);
+      if (isGroundPlatform(plat)) {
+        ctx.fillStyle = "#0d1b4a";
+        ctx.fillRect(plat.x, plat.y + 34, plat.w, Math.max(0, plat.h - 20));
+        drawFloorCrystals(plat);
+      }
     });
+  }
+
+  function drawAncientWheel(x, y, radius) {
+    ctx.save();
+    ctx.strokeStyle = "#9aa0a6";
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, Math.PI, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, radius * 0.68, Math.PI, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(x - radius, y);
+    ctx.lineTo(x + radius, y);
+    ctx.moveTo(x, y - radius);
+    ctx.lineTo(x, y);
+    ctx.moveTo(x - radius * 0.72, y - radius * 0.72);
+    ctx.lineTo(x + radius * 0.72, y);
+    ctx.moveTo(x + radius * 0.72, y - radius * 0.72);
+    ctx.lineTo(x - radius * 0.72, y);
+    ctx.stroke();
+
+    ctx.fillStyle = "#607d8b";
+    ctx.fillRect(x - radius * 0.4, y, 14, 70);
+    ctx.fillRect(x + radius * 0.26, y, 14, 70);
+    ctx.restore();
+  }
+
+  function drawLadder(x, topY, bottomY) {
+    ctx.save();
+    ctx.strokeStyle = "#c9a84c";
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(x, topY);
+    ctx.lineTo(x, bottomY);
+    ctx.moveTo(x + 32, topY);
+    ctx.lineTo(x + 32, bottomY);
+    ctx.stroke();
+
+    ctx.lineWidth = 3;
+    const rungCount = 8;
+    for (let i = 0; i < rungCount; i += 1) {
+      const y = topY + (i * (bottomY - topY)) / (rungCount - 1);
+      ctx.beginPath();
+      ctx.moveTo(x + 1, y);
+      ctx.lineTo(x + 31, y);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   function drawReturnPortal(now) {
     const portal = world.returnPortal;
     const centerX = portal.x + portal.w * 0.5;
     const centerY = portal.y + portal.h * 0.5;
-    const spin = now * 0.0024;
-    const pulse = 1 + Math.sin(now * 0.005) * 0.04;
+    const pulse = 1 + Math.sin(now * 0.002) * 0.04;
 
-    ctx.save();
-    ctx.translate(centerX, centerY);
-
-    const glow = ctx.createRadialGradient(0, 0, 16, 0, 0, 88 * pulse);
-    glow.addColorStop(0, "#c7b4ffea");
-    glow.addColorStop(0.38, "#6d6dffbb");
-    glow.addColorStop(1, "#3b2f7900");
+    const glow = ctx.createRadialGradient(centerX, centerY, 10, centerX, centerY, 110 * pulse);
+    glow.addColorStop(0, "rgba(0, 188, 212, 0.45)");
+    glow.addColorStop(0.5, "rgba(0, 96, 100, 0.3)");
+    glow.addColorStop(1, "rgba(0, 96, 100, 0)");
     ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.ellipse(0, 0, 76 * pulse, 88 * pulse, 0, 0, Math.PI * 2);
+    ctx.ellipse(centerX, centerY, 84 * pulse, 108 * pulse, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.rotate(spin);
-    ctx.strokeStyle = "#efe9ff";
-    ctx.lineWidth = 4;
+    const bodyGrad = ctx.createLinearGradient(centerX, centerY - 88, centerX, centerY + 88);
+    bodyGrad.addColorStop(0, "#00bcd4");
+    bodyGrad.addColorStop(1, "#006064");
+    ctx.fillStyle = bodyGrad;
     ctx.beginPath();
-    ctx.ellipse(0, 0, 50, 64, 0, 0, Math.PI * 2);
-    ctx.stroke();
+    ctx.ellipse(centerX, centerY, 50 * pulse, 78 * pulse, 0, 0, Math.PI * 2);
+    ctx.fill();
 
-    ctx.rotate(-spin * 1.7);
-    ctx.strokeStyle = "#8fe6ff";
+    ctx.strokeStyle = "#80d8ff";
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.ellipse(0, 0, 34, 48, 0, 0, Math.PI * 2);
+    ctx.ellipse(centerX, centerY, 56 * pulse, 84 * pulse, 0, 0, Math.PI * 2);
     ctx.stroke();
 
-    ctx.fillStyle = "#ffffff";
+    for (let i = 0; i < 8; i += 1) {
+      const angle = now * 0.0012 + (i * Math.PI * 2) / 8;
+      const orbit = 72;
+      const sx = centerX + Math.cos(angle) * orbit;
+      const sy = centerY + Math.sin(angle) * (orbit * 0.62);
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(angle + Math.PI * 0.5);
+      ctx.fillStyle = i % 2 === 0 ? "#4fc3f7" : "#80d8ff";
+      ctx.beginPath();
+      ctx.moveTo(0, -9);
+      ctx.lineTo(7, 7);
+      ctx.lineTo(-7, 7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.fillStyle = "#d9fcff";
     ctx.textAlign = "center";
     ctx.font = "bold 14px Pretendard, Noto Sans KR, sans-serif";
-    ctx.fillText("LOBBY", 0, -84);
-    ctx.restore();
+    ctx.fillText("LOBBY", centerX, centerY - 95);
+  }
+
+  function drawDungeonStructures(now) {
+    drawAncientWheel(1420, world.height - 640, 90);
+    drawAncientWheel(1940, world.height - 640, 90);
+    drawLadder(120, world.height - 660, world.height - 94);
+    drawReturnPortal(now);
   }
   function drawAttackEffects() {
     attackEffects.forEach((effect) => {
@@ -1281,7 +1488,7 @@
     ctx.save();
     ctx.translate(-camera.x, -camera.y);
     drawPlatforms();
-    drawReturnPortal(now);
+    drawDungeonStructures(now);
     drawCoins(now);
     drawAttackEffects();
     monsters.forEach((monster, index) => drawMonster(monster, index, now));
@@ -1437,8 +1644,6 @@
 
   requestAnimationFrame(gameLoop);
 })();
-
-
 
 
 
