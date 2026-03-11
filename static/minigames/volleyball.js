@@ -26,6 +26,8 @@
       phase: "playing",
       target_score: TARGET_SCORE,
       scores: { left: 0, right: 0 },
+      countdown_seconds: 5,
+      countdown_remaining: 0,
       court: {
         width: COURT.width,
         height: COURT.height,
@@ -320,9 +322,15 @@
         }
 
         mode = "network";
-        phase = payload.status === "countdown" ? "waiting" : "playing";
+        phase = payload.status === "countdown" ? "countdown" : "playing";
         state = state || createInitialState();
+        state.phase = payload.status || "playing";
         state.scores = payload.scores || state.scores;
+        state.countdown_seconds = safeNumber(payload.countdown_seconds, state.countdown_seconds || 5);
+        state.countdown_remaining = safeNumber(
+          payload.countdown_remaining,
+          state.countdown_remaining || state.countdown_seconds || 0
+        );
         if (payload.side_nicknames) {
           state.players.left.nickname = payload.side_nicknames.left || state.players.left.nickname;
           state.players.right.nickname = payload.side_nicknames.right || state.players.right.nickname;
@@ -357,6 +365,8 @@
           phase: payload.status || "playing",
           target_score: payload.target_score || TARGET_SCORE,
           scores: payload.scores || { left: 0, right: 0 },
+          countdown_seconds: safeNumber(payload.countdown_seconds, state?.countdown_seconds || 5),
+          countdown_remaining: safeNumber(payload.countdown_remaining, state?.countdown_remaining || 0),
           court: {
             width: field.width || COURT.width,
             height: field.height || COURT.height,
@@ -396,7 +406,13 @@
           last_point_side: null,
         };
 
-        phase = payload.status === "finished" ? "finished" : "playing";
+        if (payload.status === "finished") {
+          phase = "finished";
+        } else if (payload.status === "countdown") {
+          phase = "countdown";
+        } else {
+          phase = "playing";
+        }
         onPhase(payload.status === "countdown" ? "카운트다운" : "진행중");
         setScoreFromState(state);
       });
@@ -595,16 +611,55 @@
         ctx.lineTo(COURT.netX + 7, y);
         ctx.stroke();
       }
+    }
 
-      const scores = currentState.scores;
-      ctx.fillStyle = "#1111118e";
-      ctx.fillRect(canvas.width / 2 - 170, 20, 340, 72);
-      ctx.fillStyle = "#fff";
+    function drawScoreboard(currentState) {
+      const leftScore = safeNumber(currentState.scores?.left, 0);
+      const rightScore = safeNumber(currentState.scores?.right, 0);
+
+      ctx.save();
       ctx.textAlign = "center";
-      ctx.font = "26px Pretendard, Noto Sans KR, sans-serif";
-      ctx.fillText(`${scores.left} : ${scores.right}`, canvas.width / 2, 63);
-      ctx.font = "14px Pretendard, Noto Sans KR, sans-serif";
-      ctx.fillText(`Target ${TARGET_SCORE}`, canvas.width / 2, 84);
+      ctx.textBaseline = "middle";
+      ctx.lineWidth = 8;
+      ctx.strokeStyle = "#13273f";
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "900 148px Pretendard, Noto Sans KR, sans-serif";
+      ctx.strokeText(String(leftScore), canvas.width * 0.25, 112);
+      ctx.fillText(String(leftScore), canvas.width * 0.25, 112);
+      ctx.strokeText(String(rightScore), canvas.width * 0.75, 112);
+      ctx.fillText(String(rightScore), canvas.width * 0.75, 112);
+
+      ctx.font = "700 24px Pretendard, Noto Sans KR, sans-serif";
+      ctx.fillStyle = "#173253";
+      ctx.fillText(currentState.players.left.nickname || "LEFT", canvas.width * 0.25, 174);
+      ctx.fillText(currentState.players.right.nickname || "RIGHT", canvas.width * 0.75, 174);
+
+      ctx.font = "700 24px Pretendard, Noto Sans KR, sans-serif";
+      ctx.fillStyle = "#ffffff";
+      ctx.strokeStyle = "#173253";
+      ctx.lineWidth = 5;
+      const centerText = `${leftScore} : ${rightScore}  (to ${safeNumber(currentState.target_score, TARGET_SCORE)})`;
+      ctx.strokeText(centerText, canvas.width * 0.5, 52);
+      ctx.fillText(centerText, canvas.width * 0.5, 52);
+      ctx.restore();
+    }
+
+    function drawCountdownOverlay(currentState) {
+      if (currentState.phase !== "countdown") {
+        return;
+      }
+
+      const countdown = Math.max(0, Math.ceil(safeNumber(currentState.countdown_remaining, 0)));
+      ctx.save();
+      ctx.fillStyle = "#102238c8";
+      ctx.fillRect(canvas.width * 0.32, canvas.height * 0.28, canvas.width * 0.36, 260);
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "800 42px Pretendard, Noto Sans KR, sans-serif";
+      ctx.fillText("경기 시작까지", canvas.width * 0.5, canvas.height * 0.40);
+      ctx.font = "900 140px Pretendard, Noto Sans KR, sans-serif";
+      ctx.fillText(String(countdown), canvas.width * 0.5, canvas.height * 0.56);
+      ctx.restore();
     }
 
     function drawPlayer(side, body) {
@@ -702,9 +757,11 @@
       }
 
       drawCourt(state);
+      drawScoreboard(state);
       drawPlayer("left", state.players.left);
       drawPlayer("right", state.players.right);
       drawBall(state.ball);
+      drawCountdownOverlay(state);
     }
 
     function onKeyDown(event) {

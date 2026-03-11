@@ -93,3 +93,20 @@ TODO / Suggestions for next agent:
     - `join_dungeon` -> profile이 37/91로 전달
     - `dungeon_return_lobby` -> ACK profile이 100/91로 전달
   - Playwright는 1회 실행에서 스크린샷/상태 생성(`output/web-lobby-mongo-check`) 확인. 추가 1회는 샌드박스 Chromium 권한 오류로 실패.
+
+- 미니게임 코인 게이트 강화:
+  - `minigame_invite` 단계에서 신청자 코인이 10 미만이면 즉시 차단 + 시스템 안내 메시지 전송.
+  - `minigame_invite` 단계에서 대상자 코인이 10 미만이면 초대 자체를 차단.
+  - `minigame_invite_response(accepted)` 단계에서 수락자/신청자 둘 중 하나라도 10 미만이면 세션 생성 차단.
+- 배구 UI 개선(`/game/volley`, `static/minigames/volleyball.js`):
+  - 좌/우 진영 상단에 대형 점수 숫자 표시(각 진영 별).
+  - 중앙 상단에 현재 스코어/목표점 표시.
+  - 경기 상태가 `countdown`일 때 중앙 오버레이에 큰 숫자로 카운트다운 표시.
+  - 네트워크 state에 `countdown_seconds`, `countdown_remaining` 반영.
+- 검증:
+  - 문법 체크 통과: `app.py` compile, `node --check static/minigames/volleyball.js`.
+  - Socket.IO 테스트 클라이언트로 초대/수락 코인 게이트 확인:
+    - 신청자 10 미만: 초대 차단.
+    - 대상자 10 미만: 초대 차단.
+    - 수락자 10 미만: 수락 차단, `minigame_start` 미발생.
+  - Playwright 스크린샷(`output/web-volley-ui-check/shot-0.png`)에서 좌/우 대형 점수 UI 확인.

@@ -1365,6 +1365,38 @@ def on_minigame_invite(data: Dict[str, Any]) -> None:
     if not target_id or target_id == sid:
         return
 
+    sender_nickname = ""
+    with state_lock:
+        sender = find_player(sid)
+        if sender is None:
+            return
+        sender_nickname = sender["nickname"]
+
+    sender_profile = player_repository.get_or_create(sender_nickname)
+    if int(sender_profile.get("coin", 0)) < VOLLEY_ENTRY_FEE:
+        emit(
+            "system_notice",
+            {"message": f"You need at least {VOLLEY_ENTRY_FEE} coins to invite a minigame."},
+            room=sid,
+        )
+        return
+
+    with state_lock:
+        sender = find_player(sid)
+        target = find_player(target_id)
+        if sender is None or target is None:
+            return
+        target_nickname = target["nickname"]
+
+    target_profile = player_repository.get_or_create(target_nickname)
+    if int(target_profile.get("coin", 0)) < VOLLEY_ENTRY_FEE:
+        emit(
+            "system_notice",
+            {"message": f"{target_nickname} has fewer than {VOLLEY_ENTRY_FEE} coins and cannot join now."},
+            room=sid,
+        )
+        return
+
     with state_lock:
         sender = find_player(sid)
         target = find_player(target_id)
@@ -1419,10 +1451,41 @@ def on_minigame_invite_response(data: Dict[str, Any]) -> None:
         if requester is None or responder is None:
             return
 
+        requester_nickname = requester["nickname"]
+        responder_nickname = responder["nickname"]
+
     if not accepted:
         emit(
             "minigame_invite_declined",
             {"nickname": responder["nickname"]},
+            room=requester_id,
+        )
+        return
+
+    requester_profile = player_repository.get_or_create(requester_nickname)
+    if int(requester_profile.get("coin", 0)) < VOLLEY_ENTRY_FEE:
+        emit(
+            "system_notice",
+            {"message": f"{requester_nickname} does not have enough coins for the minigame."},
+            room=sid,
+        )
+        emit(
+            "system_notice",
+            {"message": "You need at least 10 coins to start a minigame."},
+            room=requester_id,
+        )
+        return
+
+    responder_profile = player_repository.get_or_create(responder_nickname)
+    if int(responder_profile.get("coin", 0)) < VOLLEY_ENTRY_FEE:
+        emit(
+            "system_notice",
+            {"message": f"You need at least {VOLLEY_ENTRY_FEE} coins to accept this minigame."},
+            room=sid,
+        )
+        emit(
+            "system_notice",
+            {"message": f"{responder_nickname} does not have enough coins to accept right now."},
             room=requester_id,
         )
         return
