@@ -941,15 +941,17 @@
     const velocityX = Number(entity.vx || 0);
     const velocityY = Number(entity.vy || 0);
     const onGround = entity === player ? player.onGround : true;
-    const runBlend = clamp(Math.abs(velocityX) / MAX_RUN_SPEED, 0, 1);
-    const stride = Math.sin(now * 0.018 + (entity.id === myId ? 0 : 0.8)) * runBlend;
+    const speedBlend = clamp(Math.abs(velocityX) / MAX_RUN_SPEED, 0, 1);
+    const moving = onGround && speedBlend > 0.05;
+    const walkBlend = moving ? speedBlend : 0;
+    const stride = Math.sin(now * 0.02 + (entity.id === myId ? 0 : 0.8)) * walkBlend;
     const pose = {
-      bob: onGround ? Math.abs(Math.sin(now * 0.02)) * 2.8 * runBlend : 0,
+      bob: moving ? Math.abs(Math.sin(now * 0.02)) * 1.9 * walkBlend : 0,
       bodyLean: clamp(velocityX / MAX_RUN_SPEED, -0.14, 0.14),
-      armFront: stride * 0.9,
-      armBack: -stride * 0.9,
-      legFront: -stride * 1.15,
-      legBack: stride * 1.15,
+      armFront: stride * 0.55,
+      armBack: -stride * 0.55,
+      legFront: -stride * 0.72,
+      legBack: stride * 0.72,
     };
 
     if (!onGround) {
@@ -963,41 +965,82 @@
     return pose;
   }
 
-  function drawPlayer(entity, isMine = false) {
-    const now = performance.now();
-    const pose = getCharacterPose(entity, now);
-    const direction = entity.direction < 0 ? -1 : 1;
-    const bodyColor = isMine ? "#2a75d5" : "#d26161";
-    const accentColor = isMine ? "#5aa0ff" : "#f29a9a";
+  const MY_ADVENTURER_PALETTE = {
+    hatTop: "#795548",
+    hatBrim: "#5d4037",
+    tunic: "#0288d1",
+    belt: "#5d4037",
+    cape: "#4e342e",
+    pants: "#a1887f",
+    knee: "#5d4037",
+    boots: "#3e2723",
+    arms: "#0288d1",
+  };
 
-    ctx.save();
-    ctx.translate(entity.x, entity.y + pose.bob);
-    ctx.scale(direction, 1);
+  const OTHER_ADVENTURER_PALETTE = {
+    hatTop: "#f57f17",
+    hatBrim: "#f57f17",
+    tunic: "#fbc02d",
+    belt: "#f9a825",
+    cape: "#f9a825",
+    pants: "#f57f17",
+    knee: "#f9a825",
+    boots: "#e65100",
+    arms: "#fbc02d",
+  };
 
-    ctx.fillStyle = "#0000001d";
+  function drawAdventurerAvatarCore(pose, palette) {
+    function drawLeg(hipX, swing) {
+      ctx.save();
+      ctx.translate(hipX, 8);
+      ctx.rotate(swing * 0.56);
+      ctx.fillStyle = palette.pants;
+      ctx.beginPath();
+      ctx.roundRect(-5, 0, 10, 24, 4);
+      ctx.fill();
+      ctx.fillStyle = palette.knee;
+      ctx.fillRect(-4, 13, 8, 3);
+      ctx.fillStyle = palette.boots;
+      ctx.beginPath();
+      ctx.roundRect(-6, 22, 12, 10, 3);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.fillStyle = palette.cape;
     ctx.beginPath();
-    ctx.ellipse(0, 18, 22, 8, 0, 0, Math.PI * 2);
+    ctx.moveTo(-16, -15);
+    ctx.lineTo(-24, 12);
+    ctx.lineTo(-8, 7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(16, -15);
+    ctx.lineTo(24, 12);
+    ctx.lineTo(8, 7);
+    ctx.closePath();
     ctx.fill();
 
-    ctx.rotate(pose.bodyLean);
+    drawLeg(-9, pose.legBack);
+    drawLeg(9, pose.legFront);
 
-    ctx.strokeStyle = "#21365c";
-    ctx.lineCap = "round";
-    ctx.lineWidth = 8;
-    ctx.beginPath();
-    ctx.moveTo(-8, 10);
-    ctx.lineTo(-12 + pose.legBack * 12, 34);
-    ctx.moveTo(8, 10);
-    ctx.lineTo(12 + pose.legFront * 12, 34);
-    ctx.stroke();
-
-    ctx.fillStyle = bodyColor;
+    ctx.fillStyle = palette.tunic;
     ctx.beginPath();
     ctx.roundRect(-16, -18, 32, 36, 10);
     ctx.fill();
 
+    ctx.strokeStyle = palette.belt;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-11, -12);
+    ctx.lineTo(11, 12);
+    ctx.moveTo(11, -12);
+    ctx.lineTo(-11, 12);
+    ctx.stroke();
+
+    ctx.strokeStyle = palette.arms;
+    ctx.lineCap = "round";
     ctx.lineWidth = 7;
-    ctx.strokeStyle = accentColor;
     ctx.beginPath();
     ctx.moveTo(-14, -8);
     ctx.lineTo(-28, -2 + pose.armBack * 10);
@@ -1016,24 +1059,65 @@
     ctx.arc(-5, -34, 2.3, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = "#11315a";
+    ctx.fillStyle = palette.hatBrim;
     ctx.beginPath();
-    ctx.arc(0, -48, 18, Math.PI, Math.PI * 2);
+    ctx.roundRect(-23, -50, 46, 8, 5);
+    ctx.fill();
+    ctx.fillStyle = palette.hatTop;
+    ctx.beginPath();
+    ctx.arc(0, -50, 18, Math.PI, Math.PI * 2);
+    ctx.lineTo(18, -50);
+    ctx.lineTo(-18, -50);
+    ctx.closePath();
     ctx.fill();
 
-    ctx.strokeStyle = isMine ? "#dce7f7" : "#ffe5d8";
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 1.4;
+    ctx.save();
+    ctx.translate(18, -58);
+    ctx.rotate((-24 * Math.PI) / 180);
+    ctx.fillStyle = "#2e7d32";
     ctx.beginPath();
-    ctx.moveTo(28, -4 + pose.armFront * 12);
-    ctx.lineTo(56, -22);
+    ctx.moveTo(0, -7);
+    ctx.quadraticCurveTo(4.8, -1.2, 0, 7);
+    ctx.quadraticCurveTo(-4.8, -1.2, 0, -7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "#66bb6a";
+    ctx.beginPath();
+    ctx.moveTo(0, -5.5);
+    ctx.lineTo(0, 5.5);
     ctx.stroke();
+    ctx.restore();
+  }
 
-    ctx.strokeStyle = isMine ? "#f4be53" : "#f7d27c";
-    ctx.lineWidth = 5;
+  function drawMyAdventurerAvatar(pose) {
+    drawAdventurerAvatarCore(pose, MY_ADVENTURER_PALETTE);
+  }
+
+  function drawOtherAdventurerAvatar(pose) {
+    drawAdventurerAvatarCore(pose, OTHER_ADVENTURER_PALETTE);
+  }
+
+  function drawPlayer(entity, isMine = false) {
+    const now = performance.now();
+    const pose = getCharacterPose(entity, now);
+    const direction = entity.direction < 0 ? -1 : 1;
+
+    ctx.save();
+    ctx.translate(entity.x, entity.y + pose.bob);
+    ctx.scale(direction, 1);
+
+    ctx.fillStyle = "#0000001d";
     ctx.beginPath();
-    ctx.moveTo(26, 1 + pose.armFront * 12);
-    ctx.lineTo(36, -3);
-    ctx.stroke();
+    ctx.ellipse(0, 18, 22, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.rotate(pose.bodyLean);
+    if (isMine) {
+      drawMyAdventurerAvatar(pose);
+    } else {
+      drawOtherAdventurerAvatar(pose);
+    }
 
     ctx.restore();
 
