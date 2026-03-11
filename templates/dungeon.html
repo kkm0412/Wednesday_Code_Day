@@ -3,35 +3,71 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dungeon Base</title>
+    <title>Dungeon Combat</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body class="subpage-body">
     <main class="subpage-layout">
       <header class="subpage-header">
-        <h1>Dungeon Base</h1>
+        <h1>Dungeon Combat Field</h1>
         <div class="subpage-stats">
-          <span>닉네임: <strong id="dungeon-name">-</strong></span>
-          <span>HP: <strong id="dungeon-hp">-</strong></span>
-          <span>Coin: <strong id="dungeon-coin">-</strong></span>
+          <span>Name <strong id="dungeon-name">-</strong></span>
+          <span>HP <strong id="dungeon-hp">-</strong></span>
+          <span>Coin <strong id="dungeon-coin">-</strong></span>
         </div>
         <div class="subpage-actions">
-          <a class="link-btn" href="/">로비 복귀</a>
-          <a class="link-btn" href="/game">미니게임 허브</a>
+          <a class="link-btn" href="/">Lobby</a>
+          <a class="link-btn" href="/game">Mini Game Hub</a>
         </div>
       </header>
 
       <section class="subpage-content">
-        <canvas id="dungeon-canvas" width="1280" height="720"></canvas>
+        <section class="dungeon-stage">
+          <canvas id="dungeon-canvas" width="1280" height="720"></canvas>
+
+          <div class="dungeon-overlay hud-top-left">
+            <div class="gauge-panel">
+              <div class="gauge-row">
+                <span>HP</span>
+                <strong id="hud-hp-text">0 / 0</strong>
+              </div>
+              <div class="gauge-track">
+                <div id="hud-hp-fill" class="gauge-fill hp"></div>
+              </div>
+              <div class="gauge-row">
+                <span>Action</span>
+                <strong id="hud-action-text">Ready</strong>
+              </div>
+              <div class="gauge-track action-track">
+                <div id="hud-action-fill" class="gauge-fill action"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="pickup-prompt" class="pickup-prompt hidden">Press E to pick up coins</div>
+
+          <div class="dungeon-overlay action-buttons">
+            <button id="attack-z-btn" type="button" class="dungeon-action-btn">Z Slash</button>
+            <button id="attack-x-btn" type="button" class="dungeon-action-btn">X Burst</button>
+            <button id="attack-c-btn" type="button" class="dungeon-action-btn">C Drive</button>
+            <button id="pickup-btn" type="button" class="dungeon-action-btn ghost-btn">E Pick Up</button>
+          </div>
+
+          <div class="dungeon-overlay coin-badge">
+            <span class="coin-badge-icon" aria-hidden="true"></span>
+            <strong id="hud-coin-count">x 0</strong>
+          </div>
+        </section>
+
         <aside class="subpage-panel">
-          <h2>던전 서버 상태</h2>
+          <h2>Dungeon Status</h2>
           <div id="dungeon-status" class="status-grid"></div>
-          <h2>몹 레퍼런스</h2>
+          <h2>Monster Board</h2>
           <div id="dungeon-monster-list" class="monster-list"></div>
-          <h2>던전 로그</h2>
+          <h2>Combat Feed</h2>
           <div id="dungeon-feed" class="feed"></div>
-          <p class="hint-text">몹은 서버 기준으로 저장되며, 페이지를 나갔다 와도 같은 던전 ID면 유지됩니다.</p>
-          <p class="hint-text">전투는 아직 미구현이며 공격 예약 키 훅만 연결됩니다: Z / X / C</p>
+          <p class="hint-text">Attacks now have live hit detection, motion changes, and coin drops.</p>
+          <p class="hint-text">Press E or use the button to collect coins after they land on the floor.</p>
         </aside>
       </section>
     </main>
