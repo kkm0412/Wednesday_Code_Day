@@ -131,22 +131,25 @@
   }
 
   function buildDecorations(currentWorld) {
+    const w = currentWorld.width;
     const h = currentWorld.height;
     return {
-      trees: [
-        { x: 360, y: h - 120, s: 1.05 },
-        { x: 720, y: h - 124, s: 0.9 },
-        { x: 1860, y: h - 122, s: 1.1 },
-        { x: 2360, y: h - 118, s: 0.95 },
+      farTrees: [
+        { x: 210, trunkW: 170, leafR: 170 },
+        { x: w * 0.5, trunkW: 150, leafR: 162 },
+        { x: w - 230, trunkW: 165, leafR: 175 },
       ],
-      banners: [
-        { x: 1080, y: h - 565, w: 120, text: "MINI" },
-        { x: 1600, y: h - 565, w: 120, text: "DUNGEON" },
+      midTrees: [
+        { x: 540, trunkW: 108, canopyR: 105, branchTilt: 1 },
+        { x: 1260, trunkW: 116, canopyR: 112, branchTilt: -1 },
+        { x: 2080, trunkW: 102, canopyR: 96, branchTilt: 1 },
       ],
-      statues: [
-        { x: 1420, y: h - 148, w: 44, h: 68 },
-        { x: 1370, y: h - 148, w: 34, h: 54 },
-      ],
+      house: {
+        x: 300,
+        y: h - 560,
+        w: 220,
+        h: 180,
+      },
     };
   }
 
@@ -486,66 +489,276 @@
   }
 
   function drawBackground() {
-    const grd = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    grd.addColorStop(0, "#c8efff");
-    grd.addColorStop(0.55, "#8fdac8");
-    grd.addColorStop(1, "#6dbb84");
-    ctx.fillStyle = grd;
+    const now = performance.now() * 0.001;
+    const sky = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    sky.addColorStop(0, "#c9f2ff");
+    sky.addColorStop(0.56, "#e0fbf5");
+    sky.addColorStop(1, "#f9fffc");
+    ctx.fillStyle = sky;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = "#ffffff8f";
-    for (let i = 0; i < 11; i += 1) {
-      const x = ((i * 190) - camera.x * 0.22) % (canvas.width + 240) - 110;
-      const y = 70 + (i % 4) * 42;
+    ctx.fillStyle = "#dffff255";
+    for (let i = 0; i < 5; i += 1) {
+      const x = ((i * 290) - camera.x * 0.08) % (canvas.width + 420) - 210;
+      const y = 96 + i * 84;
+      ctx.fillRect(x, y, 460, 1);
+    }
+
+    for (let i = 0; i < 7; i += 1) {
+      const x = ((i * 260) - camera.x * 0.11) % (canvas.width + 420) - 210;
+      const y = 126 + (i % 4) * 84 + Math.sin(now * 0.6 + i) * 8;
+      const w = 280 + (i % 3) * 40;
+      const h = 42 + (i % 2) * 9;
+      drawMistRibbon(x, y, w, h, 0.18 + (i % 3) * 0.04);
+    }
+
+    ctx.fillStyle = "#ffffff96";
+    for (let i = 0; i < 16; i += 1) {
+      const x = ((i * 180) - camera.x * 0.14) % (canvas.width + 240) - 120;
+      const y = 56 + (i % 5) * 36 + Math.sin(now * 0.9 + i * 1.2) * 3.5;
       ctx.beginPath();
-      ctx.ellipse(x, y, 68, 22, 0, 0, Math.PI * 2);
+      ctx.ellipse(x, y, 94 - (i % 3) * 10, 24 - (i % 2) * 3, 0, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    for (let i = 0; i < 9; i += 1) {
-      const w = 260;
-      const x = ((i * 320) - camera.x * 0.35) % (canvas.width + 340) - 140;
-      const y = canvas.height - 185 - (i % 3) * 35;
-      ctx.fillStyle = i % 2 ? "#8ac08d" : "#94c59a";
+    drawFarForestLayer();
+    drawMidForestLayer();
+    drawHouseSilhouette();
+
+    for (let i = 0; i < 20; i += 1) {
+      const x = ((i * 140) - camera.x * 0.18 + now * 14 * (i % 2 ? 1 : -1)) % (canvas.width + 120) - 60;
+      const y = 116 + (i % 6) * 60 + Math.sin(now * 1.5 + i) * 5;
+      drawTinySparkle(x, y, 0.17 + (i % 4) * 0.05);
+    }
+  }
+
+  function roundedRectPath(x, y, w, h, r) {
+    const radius = Math.min(r, w * 0.5, h * 0.5);
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + w - radius, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+    ctx.lineTo(x + w, y + h - radius);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+    ctx.lineTo(x + radius, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+  }
+
+  function drawMistRibbon(x, y, w, h, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    const grad = ctx.createLinearGradient(x, y, x + w, y);
+    grad.addColorStop(0, "#ffffff00");
+    grad.addColorStop(0.2, "#ffffff");
+    grad.addColorStop(0.8, "#ffffff");
+    grad.addColorStop(1, "#ffffff00");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.ellipse(x + w * 0.5, y, w * 0.5, h * 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawTinySparkle(x, y, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = "#f1fff8";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x - 3, y);
+    ctx.lineTo(x + 3, y);
+    ctx.moveTo(x, y - 3);
+    ctx.lineTo(x, y + 3);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawGrassTuft(x, y, scale = 1) {
+    ctx.fillStyle = "#2d7a2d";
+    ctx.beginPath();
+    ctx.ellipse(x - 7 * scale, y, 4.6 * scale, 8.4 * scale, -0.2, 0, Math.PI * 2);
+    ctx.ellipse(x, y - 1.5 * scale, 5.2 * scale, 9.5 * scale, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + 7 * scale, y, 4.4 * scale, 8.2 * scale, 0.22, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#5ab552cc";
+    ctx.beginPath();
+    ctx.ellipse(x - 1.5 * scale, y - 4 * scale, 3.6 * scale, 4.7 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawFlower(x, y, coreColor = "#ffd557") {
+    ctx.fillStyle = "#ffffffdf";
+    ctx.beginPath();
+    ctx.arc(x - 3, y, 2.1, 0, Math.PI * 2);
+    ctx.arc(x + 3, y, 2.1, 0, Math.PI * 2);
+    ctx.arc(x, y - 3, 2.1, 0, Math.PI * 2);
+    ctx.arc(x, y + 3, 2.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = coreColor;
+    ctx.beginPath();
+    ctx.arc(x, y, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "#2f7f36";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, y + 4);
+    ctx.lineTo(x, y + 9);
+    ctx.stroke();
+  }
+
+  function isBoundaryCollider(plat) {
+    return plat.x < 0 || plat.y < 0 || plat.x + plat.w > world.width || plat.y + plat.h > world.height;
+  }
+
+  function isGroundPlatform(plat) {
+    return plat.w >= world.width - 2 && plat.y >= world.height - 100;
+  }
+
+  function drawGroundPlatform(plat) {
+    const topBand = 30;
+    const soilY = plat.y + topBand;
+
+    ctx.fillStyle = "#5ab552";
+    roundedRectPath(plat.x, plat.y, plat.w, topBand + 8, 12);
+    ctx.fill();
+
+    ctx.fillStyle = "#3d1f00";
+    roundedRectPath(plat.x, soilY, plat.w, plat.h - topBand + 10, 8);
+    ctx.fill();
+
+    ctx.fillStyle = "#77cf64b3";
+    roundedRectPath(plat.x + 6, plat.y + 4, plat.w - 12, 9, 6);
+    ctx.fill();
+
+    ctx.fillStyle = "#2f1600aa";
+    for (let i = 0; i < 22; i += 1) {
+      const tx = plat.x + 20 + i * ((plat.w - 40) / 22);
+      const ty = soilY + 10 + (i % 3) * 12;
+      ctx.fillRect(tx, ty, 4, 2);
+    }
+
+    const tuftCount = Math.floor(plat.w / 180);
+    for (let i = 0; i < tuftCount; i += 1) {
+      const gx = plat.x + 56 + i * 175 + ((i % 3) - 1) * 14;
+      drawGrassTuft(gx, plat.y + 8, 1);
+      if (i % 2 === 0) {
+        drawFlower(gx + 22, plat.y + 10, i % 4 === 0 ? "#ffe44d" : "#ffd372");
+      }
+    }
+  }
+
+  function drawFloatingPlatform(plat) {
+    const topH = Math.min(14, Math.max(10, plat.h * 0.55));
+    const sideY = plat.y + topH;
+    const sideH = Math.max(8, plat.h - topH);
+
+    ctx.fillStyle = "#3d1f00";
+    roundedRectPath(plat.x, sideY - 1, plat.w, sideH + 6, 8);
+    ctx.fill();
+
+    ctx.fillStyle = "#5ab552";
+    roundedRectPath(plat.x, plat.y - 2, plat.w, topH + 5, 8);
+    ctx.fill();
+
+    ctx.fillStyle = "#7bd867b5";
+    roundedRectPath(plat.x + 4, plat.y, plat.w - 8, 5, 4);
+    ctx.fill();
+
+    ctx.strokeStyle = "#2f1900a6";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 5; i += 1) {
+      const sx = plat.x + 18 + i * ((plat.w - 36) / 5);
       ctx.beginPath();
-      ctx.moveTo(x, canvas.height);
-      ctx.lineTo(x + w * 0.5, y);
-      ctx.lineTo(x + w, canvas.height);
-      ctx.closePath();
-      ctx.fill();
+      ctx.moveTo(sx, sideY + 3);
+      ctx.lineTo(sx + 8, sideY + sideH - 1);
+      ctx.stroke();
+    }
+
+    const tuftCount = 3 + (Math.abs(Math.floor(plat.x / 120)) % 3);
+    for (let i = 0; i < tuftCount; i += 1) {
+      const ratio = tuftCount === 1 ? 0.5 : i / (tuftCount - 1);
+      const gx = plat.x + 22 + ratio * (plat.w - 44);
+      drawGrassTuft(gx, plat.y + 3, 0.7);
+    }
+
+    if (plat.w > 240) {
+      drawVineWithLeaves(plat.x + plat.w * 0.22, sideY + sideH - 1, 26, 5, plat.x * 0.01);
+      drawVineWithLeaves(plat.x + plat.w * 0.68, sideY + sideH - 1, 32, -5, plat.x * 0.012);
     }
   }
 
   function drawPlatform(plat) {
-    ctx.fillStyle = "#564436";
-    ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
-    ctx.fillStyle = "#75bf70";
-    ctx.fillRect(plat.x, plat.y, plat.w, Math.min(11, plat.h));
+    if (isBoundaryCollider(plat)) {
+      return;
+    }
+    if (isGroundPlatform(plat)) {
+      drawGroundPlatform(plat);
+      return;
+    }
+    drawFloatingPlatform(plat);
   }
 
   function drawPortal() {
     const p = world.portal;
     const centerX = p.x + p.w * 0.5;
     const centerY = p.y + p.h * 0.5;
-    const pulse = 1 + Math.sin(performance.now() / 240) * 0.06;
+    const now = performance.now() * 0.001;
+    const pulse = 1 + Math.sin(now * 3.2) * 0.035;
 
-    ctx.fillStyle = "#2f2a58";
-    ctx.fillRect(p.x - 8, p.y + 8, p.w + 16, p.h + 14);
-
-    const glow = ctx.createRadialGradient(centerX, centerY, 10, centerX, centerY, 80 * pulse);
-    glow.addColorStop(0, "#9de0ffef");
-    glow.addColorStop(0.45, "#5fb5ffcc");
-    glow.addColorStop(1, "#4560c000");
+    ctx.save();
+    ctx.shadowColor = "#b7e8ff";
+    ctx.shadowBlur = 30;
+    const glow = ctx.createRadialGradient(centerX, centerY, 16, centerX, centerY, 104 * pulse);
+    glow.addColorStop(0, "#d7f2ffda");
+    glow.addColorStop(0.45, "#77c8ffd1");
+    glow.addColorStop(1, "#2f63c100");
     ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.ellipse(centerX, centerY, 62 * pulse, 72 * pulse, 0, 0, Math.PI * 2);
+    ctx.ellipse(centerX, centerY, 74 * pulse, 102 * pulse, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    const bodyGrad = ctx.createLinearGradient(centerX, p.y + 18, centerX, p.y + p.h - 14);
+    bodyGrad.addColorStop(0, "#9b59b6");
+    bodyGrad.addColorStop(0.54, "#5f7fe7");
+    bodyGrad.addColorStop(1, "#3498db");
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, 44 * pulse, 76 * pulse, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.strokeStyle = "#e4f6ff";
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#f6e8ff88";
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 4; i += 1) {
+      const ry = 66 - i * 16;
+      ctx.beginPath();
+      ctx.ellipse(centerX + Math.sin(now * 1.4 + i) * 4, centerY + i * 2 - 6, 28 - i * 3, ry, 0, Math.PI * 0.25, Math.PI * 0.75);
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = "#dff8ff";
+    ctx.lineWidth = 3.2;
     ctx.beginPath();
-    ctx.ellipse(centerX, centerY, 54, 64, 0, 0, Math.PI * 2);
+    ctx.ellipse(centerX, centerY, 49 * pulse, 82 * pulse, 0, 0, Math.PI * 2);
     ctx.stroke();
+
+    for (let i = 0; i < 15; i += 1) {
+      const t = (now * 0.52 + i * 0.11) % 1;
+      const alpha = Math.sin(Math.PI * t) * 0.85;
+      const px = centerX + Math.sin(now * 2.1 + i * 1.34) * (18 + (1 - t) * 8);
+      const py = p.y + p.h - 8 - t * 132;
+      const radius = 1.8 + (i % 3) * 0.8;
+
+      ctx.fillStyle = `rgba(223, 248, 255, ${alpha.toFixed(3)})`;
+      ctx.beginPath();
+      ctx.arc(px, py, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     ctx.fillStyle = "#ffffff";
     ctx.font = "15px Pretendard, Noto Sans KR, sans-serif";
@@ -553,42 +766,136 @@
     ctx.fillText("DUNGEON", centerX, p.y - 14);
   }
 
+  function drawFarForestLayer() {
+    const baseY = canvas.height - 78;
+    ctx.save();
+    ctx.globalAlpha = 0.56;
+    ctx.fillStyle = "#1a4a1a";
+    decorations.farTrees.forEach((tree, idx) => {
+      const x = tree.x - camera.x * 0.18;
+      const trunkW = tree.trunkW;
+      ctx.fillRect(x - trunkW * 0.5, -40, trunkW, canvas.height + 120);
+
+      const leafY = baseY - 320 - idx * 26;
+      ctx.beginPath();
+      ctx.arc(x - trunkW * 0.3, leafY + 8, tree.leafR * 0.65, 0, Math.PI * 2);
+      ctx.arc(x + trunkW * 0.18, leafY - 24, tree.leafR * 0.78, 0, Math.PI * 2);
+      ctx.arc(x + trunkW * 0.64, leafY + 6, tree.leafR * 0.58, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#79bd7a22";
+      ctx.beginPath();
+      ctx.arc(x + trunkW * 0.05, leafY - 16, tree.leafR * 0.36, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#1a4a1a";
+    });
+    ctx.restore();
+  }
+
+  function drawVineWithLeaves(startX, startY, length, sway, phase) {
+    const cp1x = startX + sway;
+    const cp1y = startY + length * 0.26;
+    const cp2x = startX - sway * 0.9;
+    const cp2y = startY + length * 0.74;
+    const endX = startX + Math.sin(phase) * 5;
+    const endY = startY + length;
+
+    ctx.strokeStyle = "#215f21";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
+    ctx.stroke();
+
+    ctx.fillStyle = "#2d7a2d";
+    for (let i = 1; i <= 4; i += 1) {
+      const t = i / 5;
+      const lx = startX * (1 - t) * (1 - t) * (1 - t)
+        + 3 * cp1x * t * (1 - t) * (1 - t)
+        + 3 * cp2x * t * t * (1 - t)
+        + endX * t * t * t;
+      const ly = startY * (1 - t) * (1 - t) * (1 - t)
+        + 3 * cp1y * t * (1 - t) * (1 - t)
+        + 3 * cp2y * t * t * (1 - t)
+        + endY * t * t * t;
+      ctx.beginPath();
+      ctx.ellipse(lx + (i % 2 ? 3 : -3), ly, 4, 2.6, i % 2 ? 0.4 : -0.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawMidForestLayer() {
+    const baseY = canvas.height - 78;
+    const now = performance.now() * 0.001;
+    ctx.save();
+    ctx.globalAlpha = 0.8;
+    decorations.midTrees.forEach((tree, idx) => {
+      const x = tree.x - camera.x * 0.34;
+      const trunkTop = baseY - 370 + idx * 14;
+      const trunkW = tree.trunkW;
+      ctx.fillStyle = "#245e24";
+      ctx.fillRect(x - trunkW * 0.5, trunkTop, trunkW, canvas.height);
+      ctx.fillStyle = "#5ab5522c";
+      ctx.fillRect(x - trunkW * 0.18, trunkTop + 12, trunkW * 0.24, canvas.height);
+
+      ctx.fillStyle = "#2d7a2d";
+      ctx.beginPath();
+      ctx.arc(x - 18, trunkTop + 18, tree.canopyR * 0.58, 0, Math.PI * 2);
+      ctx.arc(x + 48, trunkTop + 2, tree.canopyR * 0.5, 0, Math.PI * 2);
+      ctx.arc(x + 4, trunkTop - 32, tree.canopyR * 0.65, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#235923";
+      for (let b = 0; b < 3; b += 1) {
+        const by = trunkTop + 78 + b * 52;
+        const tilt = (b % 2 === 0 ? tree.branchTilt : -tree.branchTilt) * (52 - b * 8);
+        ctx.save();
+        ctx.translate(x, by);
+        ctx.rotate((tilt > 0 ? 1 : -1) * 0.26);
+        ctx.fillRect(0, -3, Math.abs(tilt), 6);
+        ctx.restore();
+        drawVineWithLeaves(x + tilt * 0.66, by + 2, 88 + b * 20, tilt * 0.2, idx * 0.7 + b * 1.2 + now);
+      }
+    });
+    ctx.restore();
+  }
+
+  function drawHouseSilhouette() {
+    const house = decorations.house;
+    const x = house.x - camera.x * 0.22;
+    const y = house.y;
+    ctx.save();
+    ctx.globalAlpha = 0.34;
+    ctx.fillStyle = "#1f4028";
+    ctx.shadowColor = "#ffffff66";
+    ctx.shadowBlur = 12;
+    roundedRectPath(x, y, house.w, house.h, 12);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x - 12, y);
+    ctx.arc(x + house.w * 0.5, y, house.w * 0.6, Math.PI, 0, false);
+    ctx.lineTo(x + house.w + 12, y);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = "#f9f7d233";
+    roundedRectPath(x + house.w * 0.42, y + house.h * 0.38, 26, 36, 5);
+    ctx.fill();
+    ctx.restore();
+  }
+
   function drawDecorations() {
-    decorations.trees.forEach((tree) => {
-      const trunkW = 16 * tree.s;
-      const trunkH = 44 * tree.s;
-      ctx.fillStyle = "#6e5038";
-      ctx.fillRect(tree.x - trunkW * 0.5, tree.y - trunkH, trunkW, trunkH);
-
-      ctx.fillStyle = "#448d4c";
-      ctx.beginPath();
-      ctx.arc(tree.x, tree.y - trunkH - 18 * tree.s, 28 * tree.s, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(tree.x - 20 * tree.s, tree.y - trunkH, 22 * tree.s, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(tree.x + 22 * tree.s, tree.y - trunkH + 4 * tree.s, 20 * tree.s, 0, Math.PI * 2);
-      ctx.fill();
-    });
-
-    decorations.statues.forEach((item) => {
-      ctx.fillStyle = "#8f8a84";
-      ctx.fillRect(item.x, item.y, item.w, item.h);
-      ctx.fillStyle = "#b6afa6";
-      ctx.fillRect(item.x + 4, item.y + 5, item.w - 8, item.h - 12);
-    });
-
-    decorations.banners.forEach((banner) => {
-      ctx.fillStyle = "#472f2f";
-      ctx.fillRect(banner.x, banner.y - 40, 8, 48);
-      ctx.fillStyle = "#f4d76f";
-      ctx.fillRect(banner.x + 8, banner.y - 38, banner.w, 30);
-      ctx.fillStyle = "#3a2b1e";
-      ctx.font = "bold 14px Pretendard, Noto Sans KR, sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(banner.text, banner.x + 8 + banner.w * 0.5, banner.y - 18);
-    });
+    const floorY = world.height - 80;
+    for (let i = 0; i < 28; i += 1) {
+      const gx = 70 + i * 96 + (i % 3) * 8;
+      drawGrassTuft(gx, floorY + 11, 0.78 + (i % 2) * 0.1);
+      if (i % 5 === 0) {
+        drawFlower(gx + 14, floorY + 10, "#ffe36f");
+      }
+      if (i % 9 === 0) {
+        drawFlower(gx - 10, floorY + 12, "#fff2a8");
+      }
+    }
   }
 
   function drawSpeechBubble(text, x, y) {
