@@ -66,6 +66,7 @@
     KeyX: { label: "Burst", type: "projectile", damage: 14, cooldown: 0.5, duration: 0.32, hitStart: 0.08, hitEnd: 0.08, projectileSpeed: 760, projectileLife: 0.9, color: "#7fe7ff" },
     KeyC: { label: "Drive", type: "dash", damage: 28, cooldown: 0.82, duration: 0.34, hitStart: 0.03, hitEnd: 0.18, range: 112, height: 84, dashSpeed: 610, color: "#ff9d8f" },
   };
+  const currentScene = "dungeon";
 
   const FALLBACK_MONSTERS = [
     { monster_id: "mint-slime-001", template_id: "mint_slime", name: "Mint Slime", sprite_hint: "slime", x: 560, y: 1320, spawn_x: 560, spawn_y: 1320, hp: 36, max_hp: 36, level: 1, theme: "cute_forest", move_range: 88, respawn_delay: 8 },
@@ -1383,19 +1384,7 @@
     return pose;
   }
 
-  function drawPlayer(now) {
-    const pose = getPlayerPose(now);
-    ctx.save();
-    ctx.translate(player.x, player.y + pose.bob);
-    ctx.scale(player.direction, 1);
-    ctx.fillStyle = "#0000001d";
-    ctx.beginPath();
-    ctx.ellipse(0, 18, 22, 8, 0, 0, Math.PI * 2);
-    ctx.fill();
-    if (player.hitFlash > 0 && Math.sin(now * 0.08) > 0) {
-      ctx.translate(3, 0);
-    }
-    ctx.rotate(pose.bodyLean);
+  function drawLobbyAvatar(pose) {
     ctx.strokeStyle = "#21365c";
     ctx.lineCap = "round";
     ctx.lineWidth = 8;
@@ -1474,6 +1463,171 @@
       ctx.lineTo(76, -2);
       ctx.closePath();
       ctx.fill();
+    }
+  }
+
+  function getDungeonSwordSwingAngle(now, pose) {
+    const idleDeg = 14 + pose.armFront * 12 + Math.sin(now * 0.012) * 2.4;
+    if (!player.attack || player.attack.type !== "melee" || player.deadTimer > 0) {
+      return (idleDeg * Math.PI) / 180;
+    }
+
+    const progress = clamp(player.attack.elapsed / Math.max(0.001, player.attack.duration), 0, 1);
+    let swingDeg = 16;
+    if (progress < 0.24) {
+      const t = progress / 0.24;
+      swingDeg = 32 - t * 118;
+    } else if (progress < 0.62) {
+      const t = (progress - 0.24) / 0.38;
+      swingDeg = -86 + t * 182;
+    } else {
+      const t = (progress - 0.62) / 0.38;
+      swingDeg = 96 - t * 64;
+    }
+    return ((swingDeg + pose.bodyLean * 18) * Math.PI) / 180;
+  }
+
+  function drawDungeonAvatar(pose, now) {
+    ctx.fillStyle = "#8b0000";
+    ctx.beginPath();
+    ctx.moveTo(-22, -16);
+    ctx.lineTo(-25, 19);
+    ctx.lineTo(0, 36);
+    ctx.lineTo(25, 19);
+    ctx.lineTo(22, -16);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = "#555566";
+    ctx.lineCap = "round";
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(-8, 10);
+    ctx.lineTo(-12 + pose.legBack * 12, 34);
+    ctx.moveTo(8, 10);
+    ctx.lineTo(12 + pose.legFront * 12, 34);
+    ctx.stroke();
+
+    ctx.fillStyle = "#c8c8c8";
+    ctx.beginPath();
+    ctx.roundRect(-16, -18, 32, 36, 10);
+    ctx.fill();
+    ctx.strokeStyle = "#aaaaaa";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, -13);
+    ctx.lineTo(0, 14);
+    ctx.stroke();
+    ctx.fillStyle = "#c9a84c";
+    ctx.beginPath();
+    ctx.roundRect(-20, -17, 9, 9, 2);
+    ctx.roundRect(11, -17, 9, 9, 2);
+    ctx.fill();
+
+    ctx.lineWidth = 7;
+    ctx.strokeStyle = "#d5d5d5";
+    ctx.beginPath();
+    ctx.moveTo(-14, -8);
+    ctx.lineTo(-28, -2 + pose.armBack * 10);
+    ctx.moveTo(14, -8);
+    ctx.lineTo(28, -2 + pose.armFront * 12);
+    ctx.stroke();
+
+    ctx.fillStyle = "#f7ddbc";
+    ctx.beginPath();
+    ctx.arc(0, -34, 16, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#0d1824";
+    const eyeY = pose.eyeSquint ? -36 : -34;
+    if (pose.eyeSquint) {
+      ctx.fillRect(3, eyeY, 5, 2);
+      ctx.fillRect(-8, eyeY, 5, 2);
+    } else {
+      ctx.beginPath();
+      ctx.arc(6, eyeY, 2.3, 0, Math.PI * 2);
+      ctx.arc(-5, eyeY, 2.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = "#d0d0d0";
+    ctx.beginPath();
+    ctx.arc(0, -38, 18, Math.PI, Math.PI * 2);
+    ctx.lineTo(18, -30);
+    ctx.lineTo(-18, -30);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#bcbcbc";
+    ctx.beginPath();
+    ctx.roundRect(6, -34, 12, 4, 2);
+    ctx.fill();
+
+    const handX = 28;
+    const handY = -2 + pose.armFront * 12;
+    const swordAngle = getDungeonSwordSwingAngle(now, pose);
+    const meleeProgress = player.attack && player.attack.type === "melee" ? clamp(player.attack.elapsed / Math.max(0.001, player.attack.duration), 0, 1) : 0;
+    ctx.save();
+    ctx.translate(handX, handY);
+    if (meleeProgress > 0.16 && meleeProgress < 0.78) {
+      const trailAlpha = clamp(Math.sin(meleeProgress * Math.PI), 0, 1) * 0.48;
+      ctx.strokeStyle = `rgba(128, 216, 255, ${trailAlpha})`;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(6, -12, 76, (-112 * Math.PI) / 180, (38 * Math.PI) / 180);
+      ctx.stroke();
+      ctx.strokeStyle = `rgba(232, 248, 255, ${trailAlpha * 0.75})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(6, -12, 70, (-106 * Math.PI) / 180, (30 * Math.PI) / 180);
+      ctx.stroke();
+    }
+
+    ctx.rotate(swordAngle);
+    ctx.shadowColor = "rgba(128, 216, 255, 0.55)";
+    ctx.shadowBlur = 12;
+
+    ctx.fillStyle = "#3e1f00";
+    ctx.fillRect(1, -2, 6, 18);
+    ctx.fillStyle = "#c9a84c";
+    ctx.fillRect(-3, -6, 14, 4);
+
+    const bladeTop = -86;
+    const bladeBase = -8;
+    ctx.fillStyle = "#e8e8e8";
+    ctx.beginPath();
+    ctx.moveTo(3, bladeBase);
+    ctx.lineTo(9, bladeBase);
+    ctx.lineTo(9, bladeTop + 10);
+    ctx.lineTo(6, bladeTop);
+    ctx.lineTo(3, bladeTop + 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "#f6fbff";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(6, bladeBase - 1);
+    ctx.lineTo(6, bladeTop + 10);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawPlayer(now) {
+    const pose = getPlayerPose(now);
+    ctx.save();
+    ctx.translate(player.x, player.y + pose.bob);
+    ctx.scale(player.direction, 1);
+    ctx.fillStyle = "#0000001d";
+    ctx.beginPath();
+    ctx.ellipse(0, 18, 22, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (player.hitFlash > 0 && Math.sin(now * 0.08) > 0) {
+      ctx.translate(3, 0);
+    }
+    ctx.rotate(pose.bodyLean);
+    if (currentScene === "dungeon") {
+      drawDungeonAvatar(pose, now);
+    } else {
+      drawLobbyAvatar(pose);
     }
     ctx.restore();
     drawOverheadBar(player.x, player.y - 96, 72, clamp(player.hp / Math.max(1, player.maxHp), 0, 1), "#ff6961");
@@ -1644,7 +1798,5 @@
 
   requestAnimationFrame(gameLoop);
 })();
-
-
 
 
