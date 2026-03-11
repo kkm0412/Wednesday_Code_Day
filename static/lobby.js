@@ -100,6 +100,8 @@
   let jumpHoldTimer = 0;
   let jumpCutQueued = false;
   let interactQueued = false;
+  let chatComposing = false;
+  let pmComposing = false;
 
   let accum = 0;
   let prevTs = performance.now();
@@ -1198,6 +1200,13 @@
     return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
   }
 
+  function isImeComposingEnter(event, composingFlag) {
+    if (event.key !== "Enter") {
+      return false;
+    }
+    return Boolean(event.isComposing || composingFlag || event.keyCode === 229);
+  }
+
   function stepLobbyRecovery(dt) {
     if (!joined || player.hp >= player.maxHp) {
       return;
@@ -1422,9 +1431,20 @@
 
   pmSendBtn.addEventListener("click", sendPrivateChat);
   pmInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      sendPrivateChat();
+    if (event.key !== "Enter") {
+      return;
     }
+    if (isImeComposingEnter(event, pmComposing)) {
+      return;
+    }
+    event.preventDefault();
+    window.setTimeout(sendPrivateChat, 0);
+  });
+  pmInput.addEventListener("compositionstart", () => {
+    pmComposing = true;
+  });
+  pmInput.addEventListener("compositionend", () => {
+    pmComposing = false;
   });
 
   document.addEventListener("click", (event) => {
@@ -1434,21 +1454,35 @@
   });
 
   document.addEventListener("keydown", (event) => {
+    const activeTarget = document.activeElement;
+    const typing = isTypingTarget(activeTarget);
+    const isSpace = event.key === " " || event.code === "Space";
+    const isArrow =
+      event.key === "ArrowLeft" ||
+      event.key === "ArrowRight" ||
+      event.key === "ArrowUp" ||
+      event.key === "ArrowDown";
+
+    if (!typing && (isSpace || isArrow)) {
+      event.preventDefault();
+    }
+
     if (event.repeat) {
       return;
     }
 
-    if (event.key === "ArrowLeft") {
-      keys.left = true;
-    } else if (event.key === "ArrowRight") {
-      keys.right = true;
-    } else if (event.key === "ArrowUp") {
-      keys.up = true;
-      interactQueued = true;
-    } else if (event.key === " " || event.code === "Space") {
-      keys.jumpHeld = true;
-      jumpQueued = true;
-      event.preventDefault();
+    if (!typing) {
+      if (event.key === "ArrowLeft") {
+        keys.left = true;
+      } else if (event.key === "ArrowRight") {
+        keys.right = true;
+      } else if (event.key === "ArrowUp") {
+        keys.up = true;
+        interactQueued = true;
+      } else if (isSpace) {
+        keys.jumpHeld = true;
+        jumpQueued = true;
+      }
     }
 
     if (!joined) {
@@ -1464,7 +1498,10 @@
     }
 
     if (event.key === "Enter") {
-      if (document.activeElement === pmInput) {
+      if (isImeComposingEnter(event, chatComposing || pmComposing)) {
+        return;
+      }
+      if (activeTarget === pmInput || activeTarget === chatInput) {
         return;
       }
       if (chatInputWrap.classList.contains("hidden")) {
@@ -1476,6 +1513,9 @@
     }
 
     if (event.key.toLowerCase() === "f") {
+      if (typing) {
+        return;
+      }
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(() => {});
       } else {
@@ -1500,9 +1540,20 @@
   });
 
   chatInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      sendPublicChat();
+    if (event.key !== "Enter") {
+      return;
     }
+    if (isImeComposingEnter(event, chatComposing)) {
+      return;
+    }
+    event.preventDefault();
+    window.setTimeout(sendPublicChat, 0);
+  });
+  chatInput.addEventListener("compositionstart", () => {
+    chatComposing = true;
+  });
+  chatInput.addEventListener("compositionend", () => {
+    chatComposing = false;
   });
 
   window.render_game_to_text = () => {
@@ -1565,12 +1616,5 @@
     requestJoinLobby(storedNickname);
   }
 
-  syncPlayerStatsUi();
-
   requestAnimationFrame(gameLoop);
 })();
-
-
-
-
-
