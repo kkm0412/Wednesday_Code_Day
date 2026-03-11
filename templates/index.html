@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meta Lobby Platformer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div id="start-screen" class="overlay show">
+      <div class="card start-card">
+        <h1>메타버스 로비</h1>
+        <p>닉네임을 입력하고 로비에 입장하세요.</p>
+        <form id="join-form">
+          <input id="nickname-input" maxlength="16" placeholder="닉네임" required />
+          <button type="submit">로비 입장</button>
+        </form>
+        <ul class="intro-list">
+          <li>이동: ← / →</li>
+          <li>점프: Space</li>
+          <li>로비 채팅: Enter</li>
+          <li>우클릭: 친구 추가 / 1:1 대화</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="layout">
+      <header class="topbar">
+        <div><strong>내 닉네임:</strong> <span id="my-name">-</span></div>
+        <div class="topbar-guide">플랫폼 밖으로 나가면 로비 중앙으로 복귀합니다.</div>
+      </header>
+
+      <main class="main-area">
+        <section class="game-panel">
+          <canvas id="game-canvas" width="1280" height="720"></canvas>
+          <div id="context-menu" class="context-menu hidden">
+            <button id="friend-btn" type="button">친구 추가</button>
+            <button id="pm-btn" type="button">1:1 대화</button>
+          </div>
+          <div id="chat-input-wrap" class="chat-input-wrap hidden">
+            <input
+              id="chat-input"
+              type="text"
+              maxlength="120"
+              placeholder="메시지를 입력하고 Enter"
+              autocomplete="off"
+            />
+          </div>
+        </section>
+
+        <aside class="side-panel">
+          <section class="feed-box">
+            <h2>로비 대화</h2>
+            <div id="lobby-feed" class="feed"></div>
+          </section>
+
+          <section id="private-chat" class="private-chat hidden">
+            <h2 id="pm-title">1:1 대화</h2>
+            <div id="pm-feed" class="feed"></div>
+            <div class="pm-input-row">
+              <input id="pm-input" type="text" maxlength="300" placeholder="개인 메시지" />
+              <button id="pm-send" type="button">전송</button>
+            </div>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='client.js') }}"></script>
+  </body>
+</html>

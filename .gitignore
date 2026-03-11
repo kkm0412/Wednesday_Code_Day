@@ -1,0 +1,10 @@
+.DS_Store
+.venv/
+.npm-cache/
+.pip-cache/
+node_modules/
+output/
+web_game_playwright_client.js
+test_actions.json
+package-lock.json
+package.json
