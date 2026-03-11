@@ -5,7 +5,7 @@ import uuid
 import math
 from typing import Any, Dict, List, Optional
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, redirect, render_template, request
 from flask_socketio import SocketIO, emit
 
 try:
@@ -61,7 +61,7 @@ class PlayerRepository:
                 candidate = {
                     "nickname": nickname,
                     "hp": 100,
-                    "coin": 0,
+                    "coin": 10,
                     "created_at": time.time(),
                     "updated_at": time.time(),
                 }
@@ -83,7 +83,7 @@ class PlayerRepository:
                 "_id": f"local-{uuid.uuid4().hex[:10]}",
                 "nickname": nickname,
                 "hp": 100,
-                "coin": 0,
+                "coin": 10,
             }
         return dict(self._local_profiles[key])
 
@@ -114,7 +114,7 @@ class PlayerRepository:
                     "_id": f"local-{uuid.uuid4().hex[:10]}",
                     "nickname": nickname,
                     "hp": 100,
-                    "coin": 0,
+                    "coin": 10,
                 }
                 self._local_profiles[key] = profile
             if int(profile.get("coin", 0)) < fee:
@@ -148,7 +148,7 @@ class PlayerRepository:
                     "_id": f"local-{uuid.uuid4().hex[:10]}",
                     "nickname": nickname,
                     "hp": 100,
-                    "coin": 0,
+                    "coin": 10,
                 }
                 self._local_profiles[key] = profile
             profile["coin"] = max(0, int(profile.get("coin", 0)) + amount)
@@ -926,12 +926,12 @@ def dungeon() -> str:
 
 @app.route("/game")
 def game() -> str:
-    return render_template("game.html")
+    return redirect("/game/volley")
 
 
 @app.route("/game/volley")
 def game_volley() -> str:
-    return render_template("volley.html")
+    return render_template("game.html")
 
 
 @app.route("/dev/grant_coin", methods=["POST"])

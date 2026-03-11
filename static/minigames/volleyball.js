@@ -240,8 +240,8 @@
       oppNickname: "demoUser2",
       scores: { left: 0, right: 0 },
       coins: {
-        left: safeNumber(profile && profile.coin, 100),
-        right: 100,
+        left: safeNumber(profile && profile.coin, 0),
+        right: 0,
       },
       entryLedger: null,
       rewardLedger: null,
@@ -293,7 +293,7 @@
         return;
       }
 
-      socket.on("volleyball_joined", (payload) => {
+      socket.on("volley_joined", (payload) => {
         if (!payload || payload.session_id !== sessionId) {
           return;
         }
@@ -302,74 +302,106 @@
         onFeed(`세션 접속 완료 (${mySide.toUpperCase()})`, "system");
       });
 
-      socket.on("volleyball_waiting", (payload) => {
+      socket.on("volley_waiting", (payload) => {
         if (!payload) {
-          return;
-        }
-        if (payload.status === "error") {
-          startDemo(payload.message || "세션 오류로 데모 모드 전환");
           return;
         }
         phase = "waiting";
         onPhase("대기중");
-        onStatus(payload.message || "상대 접속 대기 중");
+        const connected = Number.isFinite(Number(payload.connected_players))
+          ? Number(payload.connected_players)
+          : 1;
+        onStatus(`상대 접속 대기 중 (${connected}/2)`);
       });
 
-      socket.on("volleyball_match_started", (payload) => {
+      socket.on("volley_start", (payload) => {
         if (!payload || payload.session_id !== sessionId) {
           return;
         }
 
         mode = "network";
-        phase = "playing";
-        mySide = payload.side || mySide;
-        state = payload.state;
-
-        if (state && state.players) {
-          if (payload.players?.me?.nickname) {
-            const sideKey = mySide || "left";
-            if (state.players[sideKey]) {
-              state.players[sideKey].nickname = payload.players.me.nickname;
-            }
-          }
-          if (payload.players?.opponent?.nickname) {
-            const opp = mySide === "left" ? "right" : "left";
-            if (state.players[opp]) {
-              state.players[opp].nickname = payload.players.opponent.nickname;
-            }
-          }
-        }
-
-        if (payload.coins && Number.isFinite(payload.coins.me_after_entry)) {
-          onCoin(payload.coins.me_after_entry);
+        phase = payload.status === "countdown" ? "waiting" : "playing";
+        state = state || createInitialState();
+        state.scores = payload.scores || state.scores;
+        if (payload.side_nicknames) {
+          state.players.left.nickname = payload.side_nicknames.left || state.players.left.nickname;
+          state.players.right.nickname = payload.side_nicknames.right || state.players.right.nickname;
         }
 
         onHideResult();
-        onPhase("진행중");
-        onStatus("실시간 매치 진행중");
+        onPhase(payload.status === "countdown" ? "카운트다운" : "진행중");
+        onStatus(payload.status === "countdown" ? "경기 시작 카운트다운" : "실시간 매치 진행중");
         onFeed("배구 매치 시작", "system");
 
         setScoreFromState(state);
       });
 
-      socket.on("volleyball_state", (payload) => {
+      socket.on("volley_state", (payload) => {
         if (!payload || payload.session_id !== sessionId || mode !== "network") {
           return;
         }
 
-        state = payload.state;
-        if (!state) {
+        const field = payload.field || {};
+        const left = payload.players?.left;
+        const right = payload.players?.right;
+        const ball = payload.ball;
+        if (!left || !right || !ball) {
           return;
         }
+        const fw = Number(field.width) || COURT.width;
+        const fh = Number(field.height) || COURT.height;
+        const sx = COURT.width / fw;
+        const sy = COURT.height / fh;
 
-        phase = state.phase === "finished" ? "finished" : "playing";
-        if (phase === "playing") {
-          onPhase("진행중");
-        }
+        state = {
+          phase: payload.status || "playing",
+          target_score: payload.target_score || TARGET_SCORE,
+          scores: payload.scores || { left: 0, right: 0 },
+          court: {
+            width: field.width || COURT.width,
+            height: field.height || COURT.height,
+            ground_y: field.floor_y || COURT.groundY,
+            net_x: field.racket_x || COURT.netX,
+            net_height: field.racket_h || COURT.netHeight,
+          },
+          players: {
+            left: {
+              x: left.x * sx,
+              y: left.y * sy,
+              vx: left.vx * sx,
+              vy: left.vy * sy,
+              radius: Math.max(12, Math.min((left.w || 76) * sx, (left.h || 76) * sy) * 0.5),
+              jump_lock: false,
+              nickname: left.nickname || "left",
+            },
+            right: {
+              x: right.x * sx,
+              y: right.y * sy,
+              vx: right.vx * sx,
+              vy: right.vy * sy,
+              radius: Math.max(12, Math.min((right.w || 76) * sx, (right.h || 76) * sy) * 0.5),
+              jump_lock: false,
+              nickname: right.nickname || "right",
+            },
+          },
+          ball: {
+            x: ball.x * sx,
+            y: ball.y * sy,
+            vx: ball.vx * sx,
+            vy: ball.vy * sy,
+            radius: Math.max(8, ball.r * ((sx + sy) * 0.5)),
+          },
+          winner_side: null,
+          reason: null,
+          last_point_side: null,
+        };
+
+        phase = payload.status === "finished" ? "finished" : "playing";
+        onPhase(payload.status === "countdown" ? "카운트다운" : "진행중");
         setScoreFromState(state);
       });
 
-      socket.on("volleyball_match_result", (payload) => {
+      socket.on("volley_match_end", (payload) => {
         if (!payload || payload.session_id !== sessionId) {
           return;
         }
@@ -378,34 +410,25 @@
         onPhase("종료");
         onStatus(payload.reason === "forfeit" ? "상대 이탈로 경기 종료" : "경기 종료");
 
-        if (payload.coins && Number.isFinite(payload.coins.me_after_result)) {
-          onCoin(payload.coins.me_after_result);
-        }
+        const didWin = mySide && payload.winner_side === mySide;
+        const myAfter = didWin && Number.isFinite(Number(payload.winner_coin))
+          ? Number(payload.winner_coin)
+          : safeNumber(profile && profile.coin, 0);
+        onCoin(myAfter);
 
         onResult({
           winnerSide: payload.winner_side,
           winnerNickname: payload.winner_nickname,
           scores: payload.scores,
           reason: payload.reason,
-          coins: payload.coins,
+          coins: {
+            entry_fee: payload.entry_fee ?? ENTRY_FEE,
+            win_reward: payload.pot ?? WIN_REWARD,
+            me_after_result: myAfter,
+          },
           mySide,
           mode: "network",
         });
-      });
-
-      socket.on("volleyball_rematch_status", (payload) => {
-        if (!payload || payload.session_id !== sessionId) {
-          return;
-        }
-        onStatus(`재대결 준비: ${payload.votes}/${payload.needed}`);
-      });
-
-      socket.on("volleyball_opponent_left", (payload) => {
-        if (!payload || payload.session_id !== sessionId) {
-          return;
-        }
-        onStatus(payload.message || "상대가 떠났습니다.");
-        onFeed(payload.message || "상대가 떠났습니다.", "system");
       });
 
       handlersBound = true;
@@ -416,13 +439,11 @@
         return;
       }
 
-      socket.off("volleyball_joined");
-      socket.off("volleyball_waiting");
-      socket.off("volleyball_match_started");
-      socket.off("volleyball_state");
-      socket.off("volleyball_match_result");
-      socket.off("volleyball_rematch_status");
-      socket.off("volleyball_opponent_left");
+      socket.off("volley_joined");
+      socket.off("volley_waiting");
+      socket.off("volley_start");
+      socket.off("volley_state");
+      socket.off("volley_match_end");
       handlersBound = false;
     }
 
@@ -441,7 +462,7 @@
         return;
       }
 
-      socket.emit("volleyball_input", {
+      socket.emit("volley_input", {
         session_id: sessionId,
         left: inputState.left,
         right: inputState.right,
@@ -649,9 +670,9 @@
         return;
       }
 
-      socket.emit("join_volleyball_session", {
+      socket.emit("volley_join_session", {
         session_id: sessionId,
-        profile,
+        nickname: profile.nickname,
       });
     }
 
@@ -719,17 +740,14 @@
       }
 
       if (mode === "network") {
-        socket.emit("volleyball_rematch", { session_id: sessionId });
-        onStatus("재대결 요청 전송");
+        onStatus("재대결은 아직 미지원입니다.");
       } else {
         startDemo("데모 재대결 시작");
       }
     }
 
     function leaveToLobby() {
-      if (mode === "network" && sessionId) {
-        socket.emit("leave_volleyball_session", { session_id: sessionId });
-      }
+      // Server session cleanup is handled by disconnect for now.
     }
 
     function teardown() {

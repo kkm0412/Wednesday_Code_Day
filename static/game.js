@@ -25,10 +25,10 @@
   const profileRaw = sessionStorage.getItem("player_profile");
   const profile = profileRaw
     ? JSON.parse(profileRaw)
-    : { _id: "guest", nickname: "demoUser1", hp: 100, coin: 100 };
+    : { _id: "guest", nickname: "demoUser1", hp: 100, coin: 0 };
 
   function setCoinValue(value) {
-    const coin = Number.isFinite(Number(value)) ? Number(value) : 100;
+    const coin = Number.isFinite(Number(value)) ? Number(value) : 0;
     profile.coin = coin;
     coinEl.textContent = String(coin);
     sessionStorage.setItem("player_profile", JSON.stringify(profile));

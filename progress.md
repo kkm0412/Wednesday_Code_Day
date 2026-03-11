@@ -58,3 +58,8 @@ TODO / Suggestions for next agent:
 - 검증: Playwright 로비 회귀 체크(`output/web-lobby-autojoin-check`). 저장 닉네임이 없는 신규 컨텍스트에서 start 모드 정상, 콘솔 에러 파일 미생성.
 
 - 볼리 캐릭터 형태 개선: 공 토스 용이성을 위해 플레이어 충돌 판정을 직사각형 단일 AABB에서 `원형 머리 + 몸통` 합성 충돌로 변경(`app.py`). 렌더도 동일하게 머리 원형/몸통 형태로 변경(`static/volley.js`).
+
+- 통일 작업: `/game` -> `/game/volley` 리다이렉트로 경로 단일화. `/game/volley`는 `templates/game.html` 렌더.
+- 이벤트 통일: 프론트 런타임(`static/minigames/volleyball.js`)의 소켓 이벤트/emit을 `volley_*`로 전환(`volley_joined`, `volley_waiting`, `volley_start`, `volley_state`, `volley_match_end`, `volley_input`, `volley_join_session`).
+- 서버 페이로드 적응: `volley_state`(서버 월드 좌표 2200x1200)를 캔버스 좌표(1280x720)로 스케일 변환해 렌더 오프셋 문제 방지.
+- 데모 코인 기본값: `static/game.js`, `static/minigames/volleyball.js` 모두 기본 0으로 조정.
