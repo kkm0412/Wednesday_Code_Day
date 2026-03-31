@@ -1,6 +1,6 @@
 # 정글버스
 
-## 실행 방법
+## 0. 실행 방법
 
 ```bash
 python3 -m venv .venv
