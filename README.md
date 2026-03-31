@@ -1,5 +1,18 @@
 # 정글버스
 
+## 실행 방법
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python3 app.py
+```
+
+- 실행 후 브라우저에서 `http://localhost:5000` 으로 접속하면 됩니다.
+- MongoDB는 선택 사항입니다. `MONGODB_URI` 환경 변수가 없으면 메모리 기반 저장소로 실행됩니다.
+- 포트를 바꾸고 싶으면 `PORT=5001 python3 app.py` 처럼 실행하면 됩니다.
+
 ## 1. 프로젝트 한 줄 소개
 
 ### 멀티플레이 로비 중심의 실시간 웹 기반 메타버스
@@ -80,6 +93,3 @@
 - 시작 시 각 `-10`
 - 승자 `+20`
 ---
-
-
-
