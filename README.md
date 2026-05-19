@@ -1,5 +1,7 @@
 # 정글버스
 
+<img width="932" height="728" alt="스크린샷 2026-03-12 오후 4 13 55" src="https://github.com/user-attachments/assets/16d0cfd7-3559-4115-a5c9-eb2a3a288d42" />
+
 ## 0. 실행 방법
 
 ```bash
